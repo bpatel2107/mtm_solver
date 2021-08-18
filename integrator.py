@@ -54,7 +54,22 @@ def mtm_integrand(xpar,
             omega - k_parallel * xpar - omega_drift_x + nu_v)
 
     # Return only real part for integration
+    return integrand
+
+
+def real_mtm_integrand(xpar, xperp, omega, ky, B, R, r, gte, gne, te, ne, k_parallel, nu):
+
+    integrand = mtm_integrand(xpar, xperp, omega, ky, B, R, r, gte, gne, te, ne, k_parallel, nu)
+
     return np.real(integrand)
+
+
+def imag_mtm_integrand(xpar, xperp, omega, ky, B, R, r, gte, gne, te, ne, k_parallel, nu):
+
+    integrand = mtm_integrand(xpar, xperp, omega, ky, B, R, r, gte, gne, te, ne, k_parallel, nu)
+
+    return np.imag(integrand)
+
 
 # STEP parameters
 n = 5
@@ -81,7 +96,7 @@ rho_star = sound_speed / ion_freq
 omega_star = (ky * te * gne / (e_charge * btor * R)) * (1 + gte/gne)
 
 # Initial guess for omega
-omega = + omega_star + 1j * omega_star / 7.2824
+omega = omega_star + 1j * omega_star / 10
 
 k_parallel = 0.0
 
@@ -94,10 +109,20 @@ nu = 4 * (2 * np.pi)**0.5 * ne * coolog * e_charge**4 * zeff / (3 * (4 * np.pi *
 args = [omega, ky, btor, R, r, gte, gne, te, ne, k_parallel, nu]
 
 # Perform integral
-result = dblquad(mtm_integrand, 0, np.inf, lower_bound_xpar, upper_bound_xpar, args=args)
+result = dblquad(real_mtm_integrand, 0, np.inf, lower_bound_xpar, upper_bound_xpar, args=args)
 
 integral = result[0]
 error = result[1]
 
 difference = integral - ky**2 / mu0
-print(f"{integral:.2e}, {ky**2/mu0:.2e}, {difference:.2e}")
+print(f"Integral = {integral:.2e}\nky**2/mu0 =  {ky**2/mu0:.2e}\nDifference =  {difference:.2e}")
+print(f"Difference/integral = {difference/integral:.2e}")
+
+# Imaginary part - should be close to zero
+# Perform integral
+imag_result = dblquad(imag_mtm_integrand, 0, np.inf, lower_bound_xpar, upper_bound_xpar, args=args)
+
+imag_integral = imag_result[0]
+imag_error = imag_result[1]
+
+print(f"Imaginary part of integral = {imag_integral:.2e}")
