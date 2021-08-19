@@ -1,5 +1,9 @@
+import matplotlib.pyplot as plt
 import numpy as np
 from scipy.integrate import dblquad
+from scipy.optimize import newton, minimize
+import matplotlib.pyplot as plt
+
 
 e_charge = 1.6e-19
 mu0 = 4 * np.pi * 1e-7
@@ -13,20 +17,19 @@ def lower_bound_xpar(xperp):
 def upper_bound_xpar(xperp):
     return np.inf
 
-
-def mtm_integrand(xpar,
-                  xperp,
-                  omega,
-                  ky,
-                  B,
-                  R,
-                  r,
-                  gte,
-                  gne,
-                  te,
-                  ne,
-                  k_parallel,
-                  nu):
+def integrand(xpar,
+              xperp,
+              omega,
+              ky,
+              B,
+              R,
+              r,
+              gte,
+              gne,
+              te,
+              ne,
+              k_parallel,
+              nu):
 
     v_thermal = np.sqrt(2 * te / electron_mass)
 
@@ -56,73 +59,94 @@ def mtm_integrand(xpar,
     # Return only real part for integration
     return integrand
 
+def real_integrand(xpar, xperp, omega, ky, B, R, r, gte, gne, te, ne, k_parallel, nu):
 
-def real_mtm_integrand(xpar, xperp, omega, ky, B, R, r, gte, gne, te, ne, k_parallel, nu):
+    inte = integrand(xpar, xperp, omega, ky, B, R, r, gte, gne, te, ne, k_parallel, nu)
 
-    integrand = mtm_integrand(xpar, xperp, omega, ky, B, R, r, gte, gne, te, ne, k_parallel, nu)
-
-    return np.real(integrand)
-
-
-def imag_mtm_integrand(xpar, xperp, omega, ky, B, R, r, gte, gne, te, ne, k_parallel, nu):
-
-    integrand = mtm_integrand(xpar, xperp, omega, ky, B, R, r, gte, gne, te, ne, k_parallel, nu)
-
-    return np.imag(integrand)
+    return np.real(inte)
 
 
-# STEP parameters
-n = 5
+def imag_integrand(xpar, xperp, omega, ky, B, R, r, gte, gne, te, ne, k_parallel, nu):
 
-r = 1.027
-R = 2.775
-q = 4.3
+    inte = integrand(xpar, xperp, omega, ky, B, R, r, gte, gne, te, ne, k_parallel, nu)
 
-btor = 2.162
-gte = 4.9578
-gne = 0.7620
+    return np.imag(inte)
 
-ky = n * q / r
 
-ne = 15.2e19
-te = 12.173e3 * e_charge
-rho = 0.66
-minor_radius = r / rho
+def mtm_integral(omega, ky, B, R, r, gte, gne, te, ne, k_parallel, nu):
 
-sound_speed = np.sqrt(te / deuterium_mass )
-ion_freq = e_charge * btor / deuterium_mass
-rho_star = sound_speed / ion_freq
+    real_integral = dblquad(real_integrand, 0, np.inf, lower_bound_xpar, upper_bound_xpar, args=args)
 
-omega_star = (ky * te * gne / (e_charge * btor * R)) * (1 + gte/gne)
+    imag_integral = dblquad(imag_integrand, 0, np.inf, lower_bound_xpar, upper_bound_xpar, args=args)
 
-# Initial guess for omega
-omega = omega_star + 1j * omega_star / 10
+    complex_integral = real_integral[0] + 1j * imag_integral[0]
+    complex_error = real_integral[1] + 1j * imag_integral[1]
 
-k_parallel = 0.0
+    return complex_integral, complex_error
 
-# Collisionality
-zeff = 1.0
-coolog = 24 - np.log(np.sqrt(ne * 1e-6) / te * e_charge )
-nu = 4 * (2 * np.pi)**0.5 * ne * coolog * e_charge**4 * zeff / (3 * (4 * np.pi * epsilon0)**2 *electron_mass**0.5 *                                                                te**1.5)
 
-# Arguments in function
-args = [omega, ky, btor, R, r, gte, gne, te, ne, k_parallel, nu]
+def minimise_func(omega, ky, B, R, r, gte, gne, te, ne, k_parallel, nu, kperp):
 
-# Perform integral
-result = dblquad(real_mtm_integrand, 0, np.inf, lower_bound_xpar, upper_bound_xpar, args=args)
+    integral, error =  mtm_integral(omega, ky, B, R, r, gte, gne, te, ne, k_parallel, nu)
 
-integral = result[0]
-error = result[1]
+    minimse_value = integral - kperp ** 2 / mu0
 
-difference = integral - ky**2 / mu0
-print(f"Integral = {integral:.2e}\nky**2/mu0 =  {ky**2/mu0:.2e}\nDifference =  {difference:.2e}")
-print(f"Difference/integral = {difference/integral:.2e}")
+    return minimse_value
 
-# Imaginary part - should be close to zero
-# Perform integral
-imag_result = dblquad(imag_mtm_integrand, 0, np.inf, lower_bound_xpar, upper_bound_xpar, args=args)
 
-imag_integral = imag_result[0]
-imag_error = imag_result[1]
+if __name__=='__main__':
 
-print(f"Imaginary part of integral = {imag_integral:.2e}")
+    # STEP parameters
+    n = 5
+
+    r = 1.027
+    R = 2.775
+    q = 4.3
+
+    btor = 2.162
+    bunit = 7.52
+    gte = 4.9578
+    gne = 0.7620
+
+    ky = n * q / r
+
+    kperp = ky
+
+    ne = 15.2e19
+    te = 12.173e3 * e_charge
+    rho = 0.66
+    minor_radius = r / rho
+
+    sound_speed = np.sqrt(te / deuterium_mass )
+    ion_freq = e_charge * btor / deuterium_mass
+    rho_star = sound_speed / ion_freq
+
+    eta = gte / gne
+    omega_star = (ky * te * gne / (e_charge * btor * R))
+
+    k_parallel = 0.0
+
+    # Collisionality
+    zeff = 1.0
+    coolog = 24 - np.log(np.sqrt(ne * 1e-6) / te * e_charge )
+    nu = 4 * (2 * np.pi)**0.5 * ne * coolog * e_charge**4 * zeff / (3 * (4 * np.pi * epsilon0)**2 * electron_mass**0.5 *
+                                                                    te**1.5)
+    alpha0 = 4.361
+
+    # Initial guess for omega
+    omega = (nu**2 * omega_star * (1 + eta) + 1j * alpha0 * eta * omega_star * nu * (1 + eta) ) / (nu**2 + alpha0 * eta * omega_star)
+
+    omega = omega_star * (1 + eta) * (1 + 1j /22)
+    print(
+        f"\nInitial guess: omega = {np.real(omega) / sound_speed * minor_radius:.2f}, gamma = {np.imag(omega) / sound_speed * minor_radius:.2f}")
+
+    # Perform integral
+    integral, error = mtm_integral(omega, ky, btor, R, r, gte, gne, te, ne, k_parallel, nu)
+    print(integral)
+
+    # Test minimiser
+    minimiser = minimise_func(omega, ky, btor, R, r, gte, gne, te, ne, k_parallel, nu, kperp)
+    print(minimiser)
+
+    root = newton(minimise_func, omega, args=(ky, btor, R, r, gte, gne, te, ne, k_parallel, nu, kperp))
+    print(root)
