@@ -73,7 +73,7 @@ def imag_integrand(xpar, xperp, omega, ky, B, R, r, gte, gne, te, ne, k_parallel
     return np.imag(inte)
 
 
-def mtm_integral(omega, ky, B, R, r, gte, gne, te, ne, k_parallel, nu):
+def mtm_integral(*args):
 
     real_integral = dblquad(real_integrand, 0, np.inf, lower_bound_xpar, upper_bound_xpar, args=args)
 
