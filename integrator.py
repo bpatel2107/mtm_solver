@@ -59,25 +59,19 @@ def integrand(xpar,
     # Return only real part for integration
     return integrand
 
-def real_integrand(xpar, xperp, omega, ky, B, R, r, gte, gne, te, ne, k_parallel, nu):
 
-    inte = integrand(xpar, xperp, omega, ky, B, R, r, gte, gne, te, ne, k_parallel, nu)
+def integrand_component(xpar, xperp, omega, ky, B, R, r, gte, gne, te, ne, k_parallel, nu, func):
 
-    return np.real(inte)
-
-
-def imag_integrand(xpar, xperp, omega, ky, B, R, r, gte, gne, te, ne, k_parallel, nu):
-
-    inte = integrand(xpar, xperp, omega, ky, B, R, r, gte, gne, te, ne, k_parallel, nu)
-
-    return np.imag(inte)
+    return func(integrand(xpar, xperp, omega, ky, B, R, r, gte, gne, te, ne, k_parallel, nu))
 
 
 def mtm_integral(*args):
 
-    real_integral = dblquad(real_integrand, 0, np.inf, lower_bound_xpar, upper_bound_xpar, args=args)
+    real_args = args + (np.real,)
+    real_integral = dblquad(integrand_component, 0, np.inf, lower_bound_xpar, upper_bound_xpar, args=real_args)
 
-    imag_integral = dblquad(imag_integrand, 0, np.inf, lower_bound_xpar, upper_bound_xpar, args=args)
+    imag_args = args + (np.imag,)
+    imag_integral = dblquad(integrand_component, 0, np.inf, lower_bound_xpar, upper_bound_xpar, args=imag_args)
 
     complex_integral = real_integral[0] + 1j * imag_integral[0]
     complex_error = real_integral[1] + 1j * imag_integral[1]
