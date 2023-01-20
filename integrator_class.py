@@ -47,7 +47,7 @@ class calc_omega():
     
         self.minor_radius = self.r / self.rho
 
-        self.bfield = self.bunit
+        self.bfield = self.btor
     
         # CGYRO units
         # sound_speed = np.sqrt(te / deuterium_mass )
@@ -92,6 +92,8 @@ class calc_omega():
         ky = kyrhos/ self.larmor_radius
 
         kx_over_ky = 1.0/0.2
+        #kx_over_ky = 0.5*self.q*self.shear/self.rho
+        print("kx/ky : ",kx_over_ky)
 
         kperp = ky * np.sqrt(1**2 + kx_over_ky**2)
         #kperp = ky
